@@ -1,0 +1,68 @@
+{
+  "transactionTime": "2026-11-11T10:00:00-07:00",
+  "receipt": "R2RECEIPT",
+  "transactionType": "SALE",
+  "vendor": "examplevendor",
+  "affiliate": "someaffiliate",
+  "role": "VENDOR",
+  "totalAccountAmount": 21.59,
+  "paymentMethod": "VISA",
+  "totalOrderAmount": 37.0,
+  "totalTaxAmount": 0.0,
+  "totalShippingAmount": 0.0,
+  "currency": "USD",
+  "orderLanguage": "EN",
+  "trackingCodes": [
+    "example"
+  ],
+  "lineItems": [
+    {
+      "itemNo": "1",
+      "productTitle": "Example Product",
+      "productPrice": 27.0,
+      "productDiscount": 0.0,
+      "accountAmount": 15.79,
+      "taxAmount": 0.0,
+      "shippingAmount": 0.0,
+      "shippable": false,
+      "recurring": false,
+      "quantity": 1,
+      "lineItemType": "ORIGINAL"
+    },
+    {
+      "itemNo": "2",
+      "productTitle": "Example Bump",
+      "productPrice": 12.0,
+      "productDiscount": 2.0,
+      "accountAmount": 5.8,
+      "taxAmount": 0.0,
+      "shippingAmount": 0.0,
+      "shippable": false,
+      "recurring": false,
+      "quantity": 1,
+      "lineItemType": "BUMP"
+    }
+  ],
+  "customer": {
+    "billing": {
+      "firstName": "Ana",
+      "lastName": "Müller",
+      "fullName": "Ana Müller",
+      "phoneNumber": "",
+      "email": "Ana.Muller@Example.com",
+      "address": {
+        "state": "",
+        "postalCode": "1010",
+        "country": "AT"
+      }
+    }
+  },
+  "upsell": {
+    "upsellOriginalReceipt": "CWOGBZLN"
+  },
+  "vendorVariables": {
+    "member": "12345"
+  },
+  "version": 8.0,
+  "attemptCount": 1
+}

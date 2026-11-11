@@ -1,0 +1,13 @@
+{
+  "secret": "TESTKEY0123ABCD",
+  "body": "{\"notification\": \"7jNlhV6ace4pzSK8s/LDlX93naNhQnrrIed8Bom0T27BQIodeI+UxmSrn5TBCVvulMVo8eUWAR1Hz65vamvKJrRSOPLoUKsuIgJECWkD8fAXqlXP4rHxZZL/LsDoPpJIwIbP62kvQKZpXKuRjTP44I7dizsoncQWypdGfO2jCVdC/Fp8hszYMaqt2DGJazQXp0ygV3KHDSWrXWNrGZOMcaEbf1cUbscQtPZ0c1dlNcFHrxI/XCED21wrRwDVKoOr\", \"iv\": \"jUk0W5MBVHblRqliaTTH1A==\"}",
+  "transaction": {
+    "transactionTime": "2026-11-11T09:31:00-07:00",
+    "receipt": "",
+    "transactionType": "TEST",
+    "vendor": "examplevendor",
+    "role": "VENDOR",
+    "version": 8.0,
+    "attemptCount": 1
+  }
+}

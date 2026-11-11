@@ -1,0 +1,23 @@
+{
+  "secret": "test-jvzoo-secret",
+  "fields": {
+    "ccustname": "José Müller",
+    "ccuststate": "",
+    "ccustcc": "PT",
+    "ccustemail": "Jose@Example.com",
+    "cproditem": "412345",
+    "cprodtitle": "Example Product",
+    "cprodtype": "STANDARD",
+    "ctransaction": "SALE",
+    "ctransaffiliate": "98765",
+    "ctransamount": "27.00",
+    "ctranspaymentmethod": "PYPL",
+    "ctransvendor": "11111",
+    "ctransreceipt": "AP-1A2B3C4D5E",
+    "cupsellreceipt": "",
+    "caffitid": "",
+    "cvendthru": "member=12345&src=example",
+    "ctranstime": "1794385815",
+    "cverify": "F7FE77F0"
+  }
+}

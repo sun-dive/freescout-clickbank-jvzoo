@@ -1,0 +1,23 @@
+{
+    "name": "sun-dive/freescout-clickbank-jvzoo",
+    "description": "Orders from ClickBank and JVZoo, kept in FreeScout beside the tickets of the people who bought.",
+    "license": "AGPL-3.0-only",
+    "authors": [
+        {
+            "name": "sun-dive"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Modules\\ClickBankJVZoo\\Providers\\ClickBankJVZooServiceProvider"
+            ],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\ClickBankJVZoo\\": ""
+        }
+    }
+}

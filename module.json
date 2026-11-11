@@ -1,0 +1,22 @@
+{
+    "name": "ClickBankJVZoo",
+    "alias": "clickbankjvzoo",
+    "description": "Orders from ClickBank and JVZoo, kept in FreeScout beside the tickets of the people who bought.",
+    "version": "0.1.0",
+    "detailsUrl": "https://github.com/sun-dive/freescout-clickbank-jvzoo",
+    "author": "sun-dive",
+    "authorUrl": "https://github.com/sun-dive",
+    "requiredAppVersion": "1.8.200",
+    "license": "AGPL-3.0",
+    "keywords": ["clickbank", "jvzoo", "orders"],
+    "active": 0,
+    "order": 0,
+    "providers": [
+        "Modules\\ClickBankJVZoo\\Providers\\ClickBankJVZooServiceProvider"
+    ],
+    "aliases": {},
+    "files": [
+        "start.php"
+    ],
+    "requires": []
+}
