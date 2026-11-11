@@ -11,6 +11,25 @@ affiliate, and whether it is paid, canceled, refunded or charged back. Test purc
 addresses: each with its status, whether the buyer has accessed what they bought, the price, the date and the receipt.
 
 
+**Codes:** every order gets a code, like `K7QM-3XDP-9RWT` (no 0, O, 1, I, L or U). A member site lets the buyer use
+it there, asking this help desk first in one signed call (below). The first member to use a code keeps it.
+
+## The member site's call
+
+`POST` to the redeem address shown in Settings, body JSON, header `X-Signature`: the base64 Ed25519 signature of the
+body's exact bytes, made with the member site's key (its public key goes in Settings).
+
+    {"code": "K7QM-3XDP-9RWT", "member": "12345", "time": 1794390000}
+
+`time` is Unix seconds; a request more than five minutes from this server's clock is refused. The answer is signed the
+same way by this help desk (its public key is shown in Settings):
+
+    {"ok": true,  "code": "K7QM-3XDP-9RWT", "member": "12345", "product": {"source": "clickbank", "item": "1", "title": "..."}, "test": false, "time": ...}
+    {"ok": false, "code": "K7QM-3XDP-9RWT", "member": "99999", "reason": "used", "time": ...}
+
+`reason` is `unknown`, `used` (by another member), or the order's status: `refunded`, `charged back` or `canceled`.
+A bad signature or time is answered 401; before the member site's key is set, 503.
+
 ## Install
 
 1. Copy this folder into FreeScout's `Modules` folder as `Modules/ClickBankJVZoo`.

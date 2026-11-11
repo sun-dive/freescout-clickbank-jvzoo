@@ -5,9 +5,13 @@
 
 require __DIR__.'/../Misc/ClickBankNotice.php';
 require __DIR__.'/../Misc/JVZooNotice.php';
+require __DIR__.'/../Misc/Codes.php';
+require __DIR__.'/../Misc/Signed.php';
 
 use Modules\ClickBankJVZoo\Misc\ClickBankNotice;
+use Modules\ClickBankJVZoo\Misc\Codes;
 use Modules\ClickBankJVZoo\Misc\JVZooNotice;
+use Modules\ClickBankJVZoo\Misc\Signed;
 
 $failed = 0;
 function check($what, $ok)
@@ -81,6 +85,39 @@ $unsigned = $v['fields'];
 unset($unsigned['cverify']);
 refused('jvzoo: an unsigned notice is refused', \UnexpectedValueException::class,
     function () use ($unsigned, $v) { JVZooNotice::read($unsigned, $v['secret']); });
+
+// codes
+$codes = [];
+for ($i = 0; $i < 2000; $i++) {
+    $codes[] = Codes::generate();
+}
+check('codes: 12 characters, none of 0 O 1 I L U', count(array_filter($codes, function ($c) {
+    return strlen($c) == 12 && !preg_match('/[0O1ILU]/', $c) && strspn($c, Codes::ALPHABET) == 12;
+})) == 2000);
+check('codes: 2000 made, all different', count(array_unique($codes)) == 2000);
+check('codes: shown in three groups', Codes::format('K7QM3XDP9RWT') == 'K7QM-3XDP-9RWT');
+check('codes: typed in lower case, with dashes or spaces, still found',
+    Codes::normalize('k7qm-3xdp-9rwt') == 'K7QM3XDP9RWT' && Codes::normalize(' K7QM 3XDP 9RWT ') == 'K7QM3XDP9RWT');
+check('codes: a letter not in the alphabet, or a wrong length, is no code',
+    Codes::normalize('K7QM-3XDP-9RWO') === '' && Codes::normalize('K7QM-3XDP') === '' && Codes::normalize('') === '');
+
+// a member site's signed request, signed by the openssl tool
+$v = vector('member-request');
+$fields = Signed::open($v['body'], $v['signature'], $v['public'], $v['time']);
+check('signed: a request signed by openssl opens', $fields['code'] == 'K7QM-3XDP-9RWT' && $fields['member'] == '12345');
+refused('signed: a changed request is refused', \UnexpectedValueException::class, function () use ($v) {
+    Signed::open(str_replace('12345', '12346', $v['body']), $v['signature'], $v['public'], $v['time']);
+});
+refused('signed: another key is refused', \UnexpectedValueException::class, function () use ($v) {
+    Signed::open($v['body'], $v['signature'], Signed::keypair()[1], $v['time']);
+});
+refused('signed: a request over five minutes old is refused', \UnexpectedValueException::class, function () use ($v) {
+    Signed::open($v['body'], $v['signature'], $v['public'], $v['time'] + 301);
+});
+check('signed: one within five minutes opens', is_array(Signed::open($v['body'], $v['signature'], $v['public'], $v['time'] + 299)));
+list($secret, $public) = Signed::keypair();
+$body = json_encode(['ok' => true, 'time' => 1794390000]);
+check('signed: what this side signs, the other opens', Signed::open($body, Signed::sign($body, $secret), $public, 1794390000)['ok'] === true);
 
 echo $failed ? "$failed failed\n" : "all passed\n";
 exit($failed ? 1 : 0);

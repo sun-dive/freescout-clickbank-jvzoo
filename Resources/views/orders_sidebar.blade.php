@@ -30,6 +30,7 @@
                                     @if ($order->price !== null) · {{ number_format((float)$order->price, 2) }}{{ $order->currency !== '' ? ' '.$order->currency : '' }}@endif
                                     @if ($order->bought_at) · {{ \App\User::dateFormat($order->bought_at, 'M j, Y') }}@endif
                                     · {{ __('receipt') }} {{ $order->receipt }}
+                                    @if ($order->code)<br>{{ __('code') }} {{ \Modules\ClickBankJVZoo\Misc\Codes::format($order->code) }}@if ($order->redeemed_by) · {{ __('used by member') }} {{ $order->redeemed_by }}@endif @endif
                                 </small>
                             </li>
                         @endforeach

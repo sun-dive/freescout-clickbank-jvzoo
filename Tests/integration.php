@@ -18,6 +18,8 @@ $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
 use Modules\ClickBankJVZoo\Entities\Order;
+use Modules\ClickBankJVZoo\Misc\Codes;
+use Modules\ClickBankJVZoo\Misc\Signed;
 use Modules\ClickBankJVZoo\Providers\ClickBankJVZooServiceProvider as Module;
 
 $failed = 0;
@@ -55,7 +57,7 @@ function clean()
     }
     \DB::table('clickbankjvzoo_events')->delete();
     \DB::table('clickbankjvzoo_orders')->delete();
-    foreach (Module::SECRETS as $option) {
+    foreach (array_merge(array_values(Module::SECRETS), array_values(Module::MEMBER), array_values(Module::OWN)) as $option) {
         \Option::remove($option);
     }
 }
@@ -146,24 +148,68 @@ $html = sidebar($ana);
 check('beside a ticket: charged back is marked, and a product name is shown as text, never as markup',
     strpos($html, '>charged back<') !== false && strpos($html, '&lt;b&gt;bold&lt;/b&gt;') !== false && strpos($html, '<b>bold</b>') === false);
 
+// codes: the member site uses a buyer's code, in one signed call
+check('codes: every order has one', Order::whereNull('code')->count() == 0 && strlen(Order::first()->code) == 12);
+function redeem(array $fields, $secret, $time = null)
+{
+    global $kernel;
+    $fields['time'] = $time ?? time();
+    $body = json_encode($fields);
+    $request = Illuminate\Http\Request::create(rtrim(config('app.url'), '/').'/codes/redeem', 'POST', [], [], [],
+        ['CONTENT_TYPE' => 'application/json', 'HTTP_X_SIGNATURE' => Signed::sign($body, $secret)], $body);
+    $response = $kernel->handle($request);
+    $kernel->terminate($request, $response);
+
+    return $response;
+}
+list($member_secret, $member_public) = Signed::keypair();
+$bump = Order::where('receipt', 'CWOGBZLN')->where('item', '2')->first();
+$typed = strtolower(Codes::format($bump->code));
+check('codes: before the member site is set up, answered 503', redeem(['code' => $typed, 'member' => '12345'], $member_secret)->getStatusCode() == 503);
+\Option::set(Module::MEMBER['public'], $member_public);
+$r = redeem(['code' => $typed, 'member' => '12345'], $member_secret);
+$answer = json_decode($r->getContent(), true);
+check('codes: a code typed in lower case with dashes is used', $r->getStatusCode() == 200 && $answer['ok'] === true
+    && $answer['product']['item'] == '2' && $answer['product']['title'] == 'Example Bump' && $answer['member'] == '12345');
+check('codes: the answer is signed by this help desk', Signed::open($r->getContent(), $r->headers->get(Signed::HEADER), Module::ownKeys()['public'])['ok'] === true);
+$bump = $bump->fresh();
+check('codes: the order is marked as the member\'s, and accessed', $bump->redeemed_by === '12345' && $bump->redeemed_at && $bump->accessed_at && $bump->accesses == 1);
+$answer = json_decode(redeem(['code' => $typed, 'member' => '12345'], $member_secret)->getContent(), true);
+check('codes: the same member again is fine, and counts', $answer['ok'] === true && $bump->fresh()->accesses == 2);
+$answer = json_decode(redeem(['code' => $typed, 'member' => '99999'], $member_secret)->getContent(), true);
+check('codes: another member is refused: used', $answer['ok'] === false && $answer['reason'] == 'used');
+$refunded = Order::where('receipt', 'R2RECEIPT')->first();
+$answer = json_decode(redeem(['code' => Codes::format($refunded->code), 'member' => '12345'], $member_secret)->getContent(), true);
+check('codes: a refunded order\'s code is refused: refunded', $answer['ok'] === false && $answer['reason'] == 'refunded');
+$answer = json_decode(redeem(['code' => 'ZZZZ-ZZZZ-ZZZZ', 'member' => '12345'], $member_secret)->getContent(), true);
+check('codes: an unknown code is refused: unknown', $answer['ok'] === false && $answer['reason'] == 'unknown');
+check('codes: a request signed with another key is answered 401', redeem(['code' => $typed, 'member' => '12345'], Signed::keypair()[0])->getStatusCode() == 401);
+check('codes: a request over five minutes old is answered 401', redeem(['code' => $typed, 'member' => '12345'], $member_secret, time() - 400)->getStatusCode() == 401);
+$html = sidebar($ana);
+check('beside a ticket: the code, and the member who used it', strpos($html, 'code '.Codes::format($bump->code)) !== false
+    && strpos($html, 'used by member 12345') !== false);
+
 // the settings page
 $sections = \Eventy::filter('settings.sections', []);
 check('settings: the ClickBank & JVZoo page is listed', isset($sections[Module::SECTION]));
 check('settings: its view', \Eventy::filter('settings.view', 'settings/x', Module::SECTION) == 'clickbankjvzoo::settings');
 $params = \Eventy::filter('settings.section_params', [], Module::SECTION);
-$html = view('clickbankjvzoo::settings', [
-    'settings'    => \Eventy::filter('settings.section_settings', [], Module::SECTION),
-    'notice_urls' => $params['template_vars']['notice_urls'],
-    'errors'      => new Illuminate\Support\ViewErrorBag(),
-])->render();
+// rendered with what FreeScout's settings page passes it
+$html = view('clickbankjvzoo::settings', array_merge($params['template_vars'], [
+    'settings' => \Eventy::filter('settings.section_settings', [], Module::SECTION),
+    'errors'   => new Illuminate\Support\ViewErrorBag(),
+]))->render();
+check('settings: shows the redeem address and this help desk\'s public key, never its secret',
+    strpos($html, rtrim(config('app.url'), '/').'/codes/redeem') !== false && strpos($html, Module::ownKeys()['public']) !== false
+    && strpos($html, Module::ownKeys()['secret']) === false);
 check('settings: shows both notice addresses', strpos($html, rtrim(config('app.url'), '/').'/clickbank/notice') !== false
     && strpos($html, rtrim(config('app.url'), '/').'/jvzoo/notice') !== false);
 check('settings: shows each saved key as one star per character, never the key',
     strpos($html, $cb['secret']) === false && strpos($html, $jv['secret']) === false
     && strpos($html, 'value="'.str_repeat('*', strlen($cb['secret'])).'"') !== false
     && strpos($html, 'value="'.str_repeat('*', strlen($jv['secret'])).'"') !== false);
-check('settings: the key boxes are text boxes marked as no password, so no login is filled into them',
-    substr_count($html, 'type="text"') == 2 && strpos($html, 'type="password"') === false && substr_count($html, 'data-lpignore="true"') == 2);
+check('settings: all four boxes are text boxes marked as no password, so no login is filled into them',
+    substr_count($html, 'type="text"') == 4 && strpos($html, 'type="password"') === false && substr_count($html, 'data-lpignore="true"') == 4);
 
 // FreeScout's own Save, as the page posts it
 function save_settings(array $values)
@@ -191,6 +237,14 @@ save_settings([$cbo => 'NEWKEY123', $jvo => '******']);
 $msg = save_settings([$cbo => '*********NEWKEY456', $jvo => '******']);
 check('save: a key typed after the stars is refused, saying to clear the field first, and nothing changes',
     strpos($msg, 'clear the field first') !== false && Module::secret('clickbank') == 'NEWKEY123');
+$mpo = Module::MEMBER['public'];
+$muo = Module::MEMBER['url'];
+$msg = save_settings([$cbo => '*********', $jvo => '******', $mpo => 'not-a-key', $muo => '']);
+check('save: a member key that is not one is refused, saying what one looks like', strpos($msg, '44 characters of base64') !== false);
+$msg = save_settings([$cbo => '*********', $jvo => '******', $mpo => $member_public, $muo => 'http://example.com/revoke']);
+check('save: an address that is not https is refused, saying so', strpos($msg, 'starts with https://') !== false);
+check('save: the member key and address are kept', save_settings([$cbo => '*********', $jvo => '******', $mpo => ' '.$member_public.' ', $muo => 'https://example.com/revoke']) === ''
+    && Module::memberKey() == $member_public && Module::memberUrl() == 'https://example.com/revoke');
 $msg = save_settings([$cbo => 'lowercase1', $jvo => '******']);
 check('save: a ClickBank key that is not capitals and digits is refused, saying so',
     strpos($msg, 'up to 16 capital letters and digits') !== false && Module::secret('clickbank') == 'NEWKEY123');

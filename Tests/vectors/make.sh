@@ -36,4 +36,18 @@ pop = ''.join(fields[k] + '|' for k in sorted(fields)) + secret
 fields['cverify'] = hashlib.sha1(pop.encode('utf-8')).hexdigest()[:8].upper()
 json.dump({'secret': secret, 'fields': fields}, open('jvzoo-sale.json', 'w'), indent=2, ensure_ascii=False)
 PY
+# a member site's signed request: a throwaway Ed25519 key made by the openssl tool; only its public half, the body
+# and the signature are kept, never the private key
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+openssl genpkey -algorithm ed25519 -out "$tmp/key.pem"
+public=$(openssl pkey -in "$tmp/key.pem" -pubout -outform DER | tail -c 32 | base64 -w0)
+printf '%s' '{"code":"K7QM-3XDP-9RWT","member":"12345","time":1794390000}' > "$tmp/body"
+signature=$(openssl pkeyutl -sign -inkey "$tmp/key.pem" -rawin -in "$tmp/body" | base64 -w0)
+python3 - "$public" "$signature" "$tmp/body" <<'PY'
+import json, sys
+public, signature, body = sys.argv[1], sys.argv[2], open(sys.argv[3]).read()
+json.dump({'public': public, 'body': body, 'signature': signature, 'time': 1794390000}, open('member-request.json', 'w'), indent=2)
+PY
+
 echo "made: $(ls *.json | grep -v plain | tr '\n' ' ')"

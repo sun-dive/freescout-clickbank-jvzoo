@@ -36,6 +36,32 @@
         </div>
     </div>
 
+    @php($member = \Modules\ClickBankJVZoo\Providers\ClickBankJVZooServiceProvider::MEMBER)
+    <h3 class="subheader">{{ __('Member site') }}</h3>
+    <div class="descr-block">
+        <p>{{ __('Each order gets a code. A member site lets the buyer use it there, asking this help desk first in one signed call. Give the member site these two:') }}</p>
+        <p>{{ __('The address it calls:') }} <code>{{ $redeem_url }}</code></p>
+        <p>{{ __("This help desk's public key:") }} <code>{{ $own_public }}</code></p>
+    </div>
+
+    <div class="form-group{{ $errors->has('settings.'.$member['public']) ? ' has-error' : '' }}">
+        <label for="member_public" class="col-sm-2 control-label">{{ __("Member site's public key") }}</label>
+        <div class="col-sm-6">
+            <input id="member_public" type="text" class="form-control input-sized" name="settings[{{ $member['public'] }}]" value="{{ old('settings.'.$member['public'], $settings[$member['public']]) }}" maxlength="255" autocomplete="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
+            <p class="form-help">{{ __('From the member site: its Ed25519 public key, in base64.') }}</p>
+            @include('partials/field_error', ['field' => 'settings.'.$member['public']])
+        </div>
+    </div>
+
+    <div class="form-group{{ $errors->has('settings.'.$member['url']) ? ' has-error' : '' }}">
+        <label for="member_url" class="col-sm-2 control-label">{{ __("Member site's address for refunds") }}</label>
+        <div class="col-sm-6">
+            <input id="member_url" type="text" class="form-control input-sized" name="settings[{{ $member['url'] }}]" value="{{ old('settings.'.$member['url'], $settings[$member['url']]) }}" maxlength="255" autocomplete="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
+            <p class="form-help">{{ __("Told when a used code's order is refunded, charged back or canceled.") }}</p>
+            @include('partials/field_error', ['field' => 'settings.'.$member['url']])
+        </div>
+    </div>
+
     <div class="form-group margin-top">
         <div class="col-sm-6 col-sm-offset-2">
             <button type="submit" class="btn btn-primary">{{ __('Save') }}</button>

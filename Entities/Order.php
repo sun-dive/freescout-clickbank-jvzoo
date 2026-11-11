@@ -3,6 +3,7 @@
 namespace Modules\ClickBankJVZoo\Entities;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\ClickBankJVZoo\Misc\Codes;
 
 class Order extends Model
 {
@@ -15,7 +16,7 @@ class Order extends Model
         'test'      => 'boolean',
     ];
 
-    protected $dates = ['bought_at', 'accessed_at'];
+    protected $dates = ['bought_at', 'accessed_at', 'redeemed_at'];
 
     // The status each kept event leaves an order in.
     const STATUS = [
@@ -37,6 +38,54 @@ class Order extends Model
     ];
 
     const SOURCES = ['clickbank' => 'ClickBank', 'jvzoo' => 'JVZoo'];
+
+    /**
+     * A code no order has yet.
+     */
+    public static function newCode()
+    {
+        do {
+            $code = Codes::generate();
+        } while (self::where('code', $code)->exists());
+
+        return $code;
+    }
+
+    /**
+     * A member site asks to use a code for one of its members: ['ok' => true, 'order' => ...] if the code is real, its
+     * order is paid, and no other member has used it; ['ok' => false, 'reason' => ...] if not ("unknown", "used", or
+     * the order's status). The first use marks the code as that member's; every use counts as an access.
+     */
+    public static function redeem($typed, $member)
+    {
+        $code = Codes::normalize($typed);
+        $member = trim((string)$member);
+        if ($code === '' || $member === '' || mb_strlen($member) > 64) {
+            return ['ok' => false, 'reason' => 'unknown'];
+        }
+
+        return \DB::transaction(function () use ($code, $member) {
+            $order = self::where('code', $code)->lockForUpdate()->first();
+            if (!$order) {
+                return ['ok' => false, 'reason' => 'unknown'];
+            }
+            if ($order->status != 'paid') {
+                return ['ok' => false, 'reason' => $order->status, 'order' => $order];
+            }
+            if ($order->redeemed_by !== null && $order->redeemed_by !== $member) {
+                return ['ok' => false, 'reason' => 'used', 'order' => $order];
+            }
+            if ($order->redeemed_by === null) {
+                $order->redeemed_by = $member;
+                $order->redeemed_at = now();
+            }
+            $order->accessed_at = $order->accessed_at ?: now();
+            $order->accesses++;
+            $order->save();
+
+            return ['ok' => true, 'order' => $order];
+        });
+    }
 
     /**
      * A customer's orders, newest first: those bought with any of their email addresses.
@@ -64,6 +113,7 @@ class Order extends Model
                     'parent_receipt', 'title', 'email', 'name', 'price', 'currency', 'affiliate', 'variables', 'test',
                 ])));
                 $order->status = self::STATUS[$e['type']];
+                $order->code = self::newCode();
                 $order->save();
             }
             if ($e['type'] == 'SALE') {

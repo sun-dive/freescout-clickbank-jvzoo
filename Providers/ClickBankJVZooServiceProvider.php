@@ -15,6 +15,19 @@ class ClickBankJVZooServiceProvider extends ServiceProvider
         'jvzoo'     => 'clickbankjvzoo_jvzoo_secret',
     ];
 
+    // The member site: its public key, which checks its requests to use a code, and the address that is told when a
+    // code's order is refunded, charged back or canceled.
+    const MEMBER = [
+        'public' => 'clickbankjvzoo_member_public',
+        'url'    => 'clickbankjvzoo_member_url',
+    ];
+
+    // This help desk's own key pair, made on first use: the secret encrypted, like the sellers' keys.
+    const OWN = [
+        'secret' => 'clickbankjvzoo_own_secret',
+        'public' => 'clickbankjvzoo_own_public',
+    ];
+
     public function boot()
     {
         $this->loadViewsFrom(__DIR__.'/../Resources/views', 'clickbankjvzoo');
@@ -44,6 +57,40 @@ class ClickBankJVZooServiceProvider extends ServiceProvider
         }
     }
 
+    /**
+     * The member site's public key, or '' when it is not set.
+     */
+    public static function memberKey()
+    {
+        return trim((string)\Option::get(self::MEMBER['public'], '', true, false));
+    }
+
+    public static function memberUrl()
+    {
+        return trim((string)\Option::get(self::MEMBER['url'], '', true, false));
+    }
+
+    /**
+     * This help desk's key pair, ['secret' => ..., 'public' => ...], base64; made and kept the first time it is needed.
+     */
+    public static function ownKeys()
+    {
+        $secret = \Option::get(self::OWN['secret'], '', true, false);
+        $public = \Option::get(self::OWN['public'], '', true, false);
+        if ($secret !== '' && $public !== '') {
+            try {
+                return ['secret' => (string)decrypt($secret), 'public' => (string)$public];
+            } catch (\Exception $e) {
+                // the app's key changed since: a new pair, whose public key the member site must be given again
+            }
+        }
+        list($secret, $public) = \Modules\ClickBankJVZoo\Misc\Signed::keypair();
+        \Option::set(self::OWN['secret'], encrypt($secret));
+        \Option::set(self::OWN['public'], $public);
+
+        return ['secret' => $secret, 'public' => $public];
+    }
+
     public function hooks()
     {
         \Eventy::addFilter('settings.sections', function ($sections) {
@@ -60,6 +107,8 @@ class ClickBankJVZooServiceProvider extends ServiceProvider
             foreach (self::SECRETS as $seller => $option) {
                 $settings[$option] = str_repeat('*', mb_strlen(self::secret($seller)));
             }
+            $settings[self::MEMBER['public']] = self::memberKey();
+            $settings[self::MEMBER['url']] = self::memberUrl();
 
             return $settings;
         }, 20, 2);
@@ -70,18 +119,25 @@ class ClickBankJVZooServiceProvider extends ServiceProvider
             }
 
             return [
-                // the addresses to give each seller
+                // the addresses to give each seller, and what to give the member site
                 'template_vars' => [
                     'notice_urls' => [
                         'clickbank' => route('clickbankjvzoo.clickbank'),
                         'jvzoo'     => route('clickbankjvzoo.jvzoo'),
                     ],
+                    'redeem_url' => route('clickbankjvzoo.redeem'),
+                    'own_public' => self::ownKeys()['public'],
                 ],
                 // shown as stars, never sent back to the page; saved encrypted
                 'settings' => array_fill_keys(array_values(self::SECRETS), ['safe_password' => true, 'encrypt' => true]),
                 'validator_rules' => [
                     'settings.'.self::SECRETS['clickbank'] => [new \Modules\ClickBankJVZoo\Misc\SecretKeyRule('clickbank')],
                     'settings.'.self::SECRETS['jvzoo']     => [new \Modules\ClickBankJVZoo\Misc\SecretKeyRule('jvzoo')],
+                    // an Ed25519 public key in base64: 32 bytes
+                    'settings.'.self::MEMBER['public']     => [new \Modules\ClickBankJVZoo\Misc\MatchRule('/^[A-Za-z0-9+\/]{43}=$/',
+                        __("The member site's public key is 44 characters of base64, ending in =."))],
+                    'settings.'.self::MEMBER['url']        => [new \Modules\ClickBankJVZoo\Misc\MatchRule('/^https:\/\/[^\s"<>]+$/',
+                        __('The address starts with https:// and has no spaces.'))],
                 ],
             ];
         }, 20, 2);
@@ -105,7 +161,7 @@ class ClickBankJVZooServiceProvider extends ServiceProvider
                 return $request;
             }
             $values = $request->settings;
-            foreach (self::SECRETS as $option) {
+            foreach (array_merge(array_values(self::SECRETS), array_values(self::MEMBER)) as $option) {
                 if (isset($values[$option]) && is_string($values[$option])) {
                     $values[$option] = trim($values[$option]);
                 }
