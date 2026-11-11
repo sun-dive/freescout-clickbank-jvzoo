@@ -38,6 +38,7 @@ class ClickBankJVZooServiceProvider extends ServiceProvider
     public function register()
     {
         $this->loadJsonTranslationsFrom(__DIR__.'/../Resources/lang');
+        $this->commands([\Modules\ClickBankJVZoo\Console\SendNotices::class]);
     }
 
     /**
@@ -141,6 +142,14 @@ class ClickBankJVZooServiceProvider extends ServiceProvider
                 ],
             ];
         }, 20, 2);
+
+        // the member site's notices go out from FreeScout's scheduler, every minute; a run cut short frees its lock
+        // after five minutes
+        \Eventy::addFilter('schedule', function ($schedule) {
+            $schedule->command('clickbankjvzoo:send-notices')->everyMinute()->withoutOverlapping(5);
+
+            return $schedule;
+        });
 
         // beside each ticket, above Previous Conversations: the customer's orders, read-only
         \Eventy::addAction('conversation.before_prev_convs', function ($customer, $conversation, $mailbox) {

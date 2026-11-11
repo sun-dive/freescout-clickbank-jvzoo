@@ -129,8 +129,13 @@ class Order extends Model
             }
             $latest = \DB::table('clickbankjvzoo_events')->where('order_id', $order->id)
                 ->orderBy('happened_at', 'desc')->orderBy('id', 'desc')->value('type');
+            $before = $order->status;
             $order->status = self::STATUS[$latest];
             $order->save();
+            // a member who used the order's code is told when its status changes
+            if ($order->redeemed_by !== null && $order->status !== $before) {
+                Notice::queue($order);
+            }
 
             return $order;
         });

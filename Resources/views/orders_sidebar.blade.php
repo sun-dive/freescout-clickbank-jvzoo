@@ -31,6 +31,8 @@
                                     @if ($order->bought_at) · {{ \App\User::dateFormat($order->bought_at, 'M j, Y') }}@endif
                                     · {{ __('receipt') }} {{ $order->receipt }}
                                     @if ($order->code)<br>{{ __('code') }} {{ \Modules\ClickBankJVZoo\Misc\Codes::format($order->code) }}@if ($order->redeemed_by) · {{ __('used by member') }} {{ $order->redeemed_by }}@endif @endif
+                                    @php($notice = \Modules\ClickBankJVZoo\Entities\Notice::where('order_id', $order->id)->orderBy('id', 'desc')->first())
+                                    @if ($notice)<br>{{ __('member site') }}: {{ $notice->sent_at ? __('told') : __('to be told') }} "{{ __($notice->status) }}"@if (!$notice->sent_at && $notice->attempts) ({{ $notice->attempts }} {{ __('tries') }})@endif @endif
                                 </small>
                             </li>
                         @endforeach

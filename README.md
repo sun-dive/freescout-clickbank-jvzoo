@@ -30,6 +30,15 @@ same way by this help desk (its public key is shown in Settings):
 `reason` is `unknown`, `used` (by another member), or the order's status: `refunded`, `charged back` or `canceled`.
 A bad signature or time is answered 401; before the member site's key is set, 503.
 
+When a used code's order changes status (refunded, charged back, canceled, or paid again), this help desk tells the
+member site: a `POST` to the member site's address in Settings, signed the same way.
+
+    {"code": "K7QM-3XDP-9RWT", "member": "12345", "status": "refunded", "time": 1794390000}
+
+An answer in the 200s counts as received. Anything else is tried again after 1, 2, 4 ... minutes, then hourly, until
+it is received; one order's notices arrive in the order they happened. They are sent by FreeScout's scheduler, every
+minute.
+
 ## Install
 
 1. Copy this folder into FreeScout's `Modules` folder as `Modules/ClickBankJVZoo`.

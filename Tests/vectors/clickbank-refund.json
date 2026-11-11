@@ -1,0 +1,72 @@
+{
+  "secret": "TESTKEY0123ABCD",
+  "body": "{\"notification\": \"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\", \"iv\": \"jnAxYsAr7wW3zUlXfVlm+g==\"}",
+  "transaction": {
+    "transactionTime": "2026-11-12T09:00:00-07:00",
+    "receipt": "CWOGBZLN",
+    "transactionType": "RFND",
+    "vendor": "examplevendor",
+    "affiliate": "someaffiliate",
+    "role": "VENDOR",
+    "totalAccountAmount": 21.59,
+    "paymentMethod": "VISA",
+    "totalOrderAmount": 37.0,
+    "totalTaxAmount": 0.0,
+    "totalShippingAmount": 0.0,
+    "currency": "USD",
+    "orderLanguage": "EN",
+    "trackingCodes": [
+      "example"
+    ],
+    "lineItems": [
+      {
+        "itemNo": "1",
+        "productTitle": "Example Product",
+        "productPrice": 27.0,
+        "productDiscount": 0.0,
+        "accountAmount": 15.79,
+        "taxAmount": 0.0,
+        "shippingAmount": 0.0,
+        "shippable": false,
+        "recurring": false,
+        "quantity": 1,
+        "lineItemType": "ORIGINAL"
+      },
+      {
+        "itemNo": "2",
+        "productTitle": "Example Bump",
+        "productPrice": 12.0,
+        "productDiscount": 2.0,
+        "accountAmount": 5.8,
+        "taxAmount": 0.0,
+        "shippingAmount": 0.0,
+        "shippable": false,
+        "recurring": false,
+        "quantity": 1,
+        "lineItemType": "BUMP"
+      }
+    ],
+    "customer": {
+      "billing": {
+        "firstName": "Ana",
+        "lastName": "Müller",
+        "fullName": "Ana Müller",
+        "phoneNumber": "",
+        "email": "Ana.Muller@Example.com",
+        "address": {
+          "state": "",
+          "postalCode": "1010",
+          "country": "AT"
+        }
+      }
+    },
+    "upsell": {
+      "upsellOriginalReceipt": "CWOGBZLN"
+    },
+    "vendorVariables": {
+      "member": "12345"
+    },
+    "version": 8.0,
+    "attemptCount": 1
+  }
+}

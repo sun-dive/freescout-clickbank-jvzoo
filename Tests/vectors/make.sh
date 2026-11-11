@@ -10,7 +10,7 @@ CB_SECRET=TESTKEY0123ABCD
 JV_SECRET=test-jvzoo-secret
 
 key_hex=$(printf %s "$CB_SECRET" | sha1sum | cut -c1-32 | tr -d '\n' | od -An -tx1 | tr -d ' \n')
-for name in clickbank-sale clickbank-test-sale clickbank-url-test clickbank-r2-sale clickbank-r2-refund; do
+for name in clickbank-sale clickbank-refund clickbank-test-sale clickbank-url-test clickbank-r2-sale clickbank-r2-refund; do
   iv_hex=$(openssl rand -hex 16)
   notification=$(openssl enc -aes-256-cbc -K "$key_hex" -iv "$iv_hex" -in "$name.plain.json" | base64 -w0)
   python3 - "$name" "$iv_hex" "$notification" "$CB_SECRET" <<'PY'

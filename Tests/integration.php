@@ -17,6 +17,7 @@ $app = require $app_dir.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
+use Modules\ClickBankJVZoo\Entities\Notice;
 use Modules\ClickBankJVZoo\Entities\Order;
 use Modules\ClickBankJVZoo\Misc\Codes;
 use Modules\ClickBankJVZoo\Misc\Signed;
@@ -55,6 +56,7 @@ function clean()
             }
         }
     }
+    \DB::table('clickbankjvzoo_notices')->delete();
     \DB::table('clickbankjvzoo_events')->delete();
     \DB::table('clickbankjvzoo_orders')->delete();
     foreach (array_merge(array_values(Module::SECRETS), array_values(Module::MEMBER), array_values(Module::OWN)) as $option) {
@@ -188,6 +190,64 @@ check('codes: a request over five minutes old is answered 401', redeem(['code' =
 $html = sidebar($ana);
 check('beside a ticket: the code, and the member who used it', strpos($html, 'code '.Codes::format($bump->code)) !== false
     && strpos($html, 'used by member 12345') !== false);
+
+// telling the member site when a used code's order changes status: a stand-in member site answers on cue
+$member_calls = [];
+$member_answer = 500;
+Notice::$transport = function ($url, $body, $headers) use (&$member_calls, &$member_answer) {
+    $member_calls[] = ['url' => $url, 'body' => $body, 'headers' => $headers];
+
+    return $member_answer;
+};
+function send_notices()
+{
+    \Artisan::call('clickbankjvzoo:send-notices');
+}
+check('notices: none while the used code\'s order is still paid', Notice::count() == 0);
+check('notices: the refund of that sale is answered 204', post('/clickbank/notice', vector('clickbank-refund')['body'], 'application/json') == 204);
+$notice = Notice::first();
+check('notices: one queued, for the used code only, saying refunded', Notice::count() == 1 && $notice->order_id == $bump->id
+    && $notice->member == '12345' && $notice->status == 'refunded');
+send_notices();
+check('notices: with no address for the member site, they wait', count($member_calls) == 0 && $notice->fresh()->attempts == 0);
+\Option::set(Module::MEMBER['url'], 'https://member.example/notices');
+send_notices();
+$notice = $notice->fresh();
+check('notices: the member site fails: kept, to try again later', count($member_calls) == 1 && !$notice->sent_at && $notice->attempts == 1
+    && $notice->last_error == 'HTTP 500' && $notice->next_attempt_at > now());
+send_notices();
+check('notices: not tried again before its time', count($member_calls) == 1);
+Notice::where('id', $notice->id)->update(['next_attempt_at' => now()->subMinute()]);
+$member_answer = 200;
+send_notices();
+$call = end($member_calls);
+$told = Signed::open($call['body'], $call['headers'][Signed::HEADER], Module::ownKeys()['public']);
+check('notices: the member site answers 200: sent', count($member_calls) == 2 && $notice->fresh()->sent_at !== null);
+check('notices: what it was told, signed by this help desk, timed now', $call['url'] == 'https://member.example/notices'
+    && $told['code'] == Codes::format($bump->code) && $told['member'] == '12345' && $told['status'] == 'refunded' && abs($told['time'] - time()) < 60);
+send_notices();
+check('notices: a sent notice is not sent again', count($member_calls) == 2);
+$event = ['source' => 'clickbank', 'test' => false, 'receipt' => 'CWOGBZLN', 'parent_receipt' => null, 'item' => '2', 'title' => 'Example Bump',
+    'email' => 'ana.muller@example.com', 'name' => 'Ana Müller', 'price' => 10, 'currency' => 'USD', 'affiliate' => null, 'variables' => []];
+Order::record($event + ['type' => 'UNCANCEL-REBILL', 'happened_at' => '2026-11-13 00:00:00']);
+Order::record($event + ['type' => 'CGBK', 'happened_at' => '2026-11-14 00:00:00']);
+$member_answer = 500;
+send_notices();
+check('notices: of two for one order, the second waits while the first is unsent', count($member_calls) == 3
+    && json_decode(end($member_calls)['body'], true)['status'] == 'paid');
+Notice::whereNull('sent_at')->update(['next_attempt_at' => now()->subMinute()]);
+$member_answer = 200;
+send_notices();
+check('notices: then both go, in the order they happened', count($member_calls) == 5
+    && json_decode($member_calls[3]['body'], true)['status'] == 'paid' && json_decode($member_calls[4]['body'], true)['status'] == 'charged back');
+// FreeScout's own start-up has run its schedule hook; every minute is written "* * * * *" or, here, "* * * * * *"
+$ours = collect(app(Illuminate\Console\Scheduling\Schedule::class)->events())->filter(function ($e) {
+    return strpos($e->command, 'clickbankjvzoo:send-notices') !== false;
+});
+check('notices: sent from FreeScout\'s scheduler, once, every minute', $ours->count() == 1
+    && preg_match('/^\* \* \* \* \*( \*)?$/', trim($ours->first()->expression)));
+check('beside a ticket: what the member site has been told', strpos(sidebar($ana), 'member site: told') !== false);
+Notice::$transport = null;
 
 // the settings page
 $sections = \Eventy::filter('settings.sections', []);
