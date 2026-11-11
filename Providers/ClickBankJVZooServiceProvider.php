@@ -86,6 +86,19 @@ class ClickBankJVZooServiceProvider extends ServiceProvider
             ];
         }, 20, 2);
 
+        // beside each ticket, above Previous Conversations: the customer's orders, read-only
+        \Eventy::addAction('conversation.before_prev_convs', function ($customer, $conversation, $mailbox) {
+            try {
+                $orders = \Modules\ClickBankJVZoo\Entities\Order::forEmails($customer->emails->pluck('email')->all());
+                if (count($orders)) {
+                    echo view('clickbankjvzoo::orders_sidebar', ['orders' => $orders])->render();
+                }
+            } catch (\Throwable $e) {
+                // a fault here must never break the ticket page
+                \Log::error('[ClickBank & JVZoo] orders beside the ticket: '.$e->getMessage());
+            }
+        }, 20, 3);
+
         // spaces around a pasted key are dropped before it is saved
         \Eventy::addFilter('settings.before_save', function ($request, $section) {
             if ($section != self::SECTION || !is_array($request->settings)) {

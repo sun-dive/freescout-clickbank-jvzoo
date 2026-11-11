@@ -15,18 +15,40 @@ class Order extends Model
         'test'      => 'boolean',
     ];
 
-    protected $dates = ['bought_at'];
+    protected $dates = ['bought_at', 'accessed_at'];
 
     // The status each kept event leaves an order in.
     const STATUS = [
-        'SALE'            => 'active',
-        'BILL'            => 'active',
-        'UNCANCEL-REBILL' => 'active',
+        'SALE'            => 'paid',
+        'BILL'            => 'paid',
+        'UNCANCEL-REBILL' => 'paid',
         'RFND'            => 'refunded',
-        'CGBK'            => 'chargeback',
-        'INSF'            => 'chargeback',
-        'CANCEL-REBILL'   => 'cancelled',
+        'CGBK'            => 'charged back',
+        'INSF'            => 'charged back',
+        'CANCEL-REBILL'   => 'canceled',
     ];
+
+    // How each status is marked beside a ticket (FreeScout's label colours).
+    const STATUS_CLASS = [
+        'paid'         => 'success',
+        'canceled'     => 'default',
+        'refunded'     => 'warning',
+        'charged back' => 'danger',
+    ];
+
+    const SOURCES = ['clickbank' => 'ClickBank', 'jvzoo' => 'JVZoo'];
+
+    /**
+     * A customer's orders, newest first: those bought with any of their email addresses.
+     */
+    public static function forEmails($emails)
+    {
+        $emails = array_values(array_unique(array_map(function ($e) {
+            return strtolower(trim((string)$e));
+        }, (array)$emails)));
+
+        return self::whereIn('email', $emails)->orderBy('bought_at', 'desc')->orderBy('id', 'desc')->get();
+    }
 
     /**
      * Keeps one event from a seller's notice (ClickBankNotice, JVZooNotice): the order it belongs to, made by the

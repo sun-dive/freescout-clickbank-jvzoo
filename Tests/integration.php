@@ -43,6 +43,16 @@ function post($path, $body, $type)
 }
 function clean()
 {
+    foreach (['ana.muller@example.com', 'nobody@example.com'] as $address) {
+        $email = \App\Email::where('email', $address)->first();
+        if ($email) {
+            $customer = $email->customer;
+            $email->delete();
+            if ($customer) {
+                $customer->delete();
+            }
+        }
+    }
     \DB::table('clickbankjvzoo_events')->delete();
     \DB::table('clickbankjvzoo_orders')->delete();
     foreach (Module::SECRETS as $option) {
@@ -70,7 +80,7 @@ $o = orders();
 check('clickbank sale: two orders, one per product', count($o) == 2);
 check('clickbank sale: as sent', $o[0]->source == 'clickbank' && $o[0]->receipt == 'CWOGBZLN' && $o[0]->item == '1'
     && $o[0]->email == 'ana.muller@example.com' && $o[0]->name == 'Ana Müller' && $o[0]->price == '27.00'
-    && $o[0]->status == 'active' && $o[0]->variables == ['member' => '12345'] && $o[0]->bought_at == '2026-11-11 16:30:15'
+    && $o[0]->status == 'paid' && $o[0]->variables == ['member' => '12345'] && $o[0]->bought_at == '2026-11-11 16:30:15'
     && $o[1]->title == 'Example Bump' && $o[1]->price == '10.00');
 
 check('clickbank sale sent again: answered 204', post('/clickbank/notice', $cb['body'], 'application/json') == 204);
@@ -100,11 +110,41 @@ $form = http_build_query($jv['fields']);
 check('jvzoo sale: answered 204', post('/jvzoo/notice', $form, 'application/x-www-form-urlencoded') == 204);
 $j = Order::where('source', 'jvzoo')->first();
 check('jvzoo sale: as sent', $j && $j->receipt == 'AP-1A2B3C4D5E' && $j->name == 'José Müller' && $j->email == 'jose@example.com'
-    && $j->price == '27.00' && $j->status == 'active' && $j->variables == ['member' => '12345', 'src' => 'example']);
+    && $j->price == '27.00' && $j->status == 'paid' && $j->variables == ['member' => '12345', 'src' => 'example']);
 $changed = $jv['fields'];
 $changed['ctransamount'] = '0.01';
 check('jvzoo changed amount: answered 401', post('/jvzoo/notice', http_build_query($changed), 'application/x-www-form-urlencoded') == 401);
 check('jvzoo changed amount: keeps nothing', Order::where('source', 'jvzoo')->count() == 1);
+
+// beside a ticket: the customer's orders, read-only
+function sidebar($customer)
+{
+    ob_start();
+    \Eventy::action('conversation.before_prev_convs', $customer, new \App\Conversation(), new \App\Mailbox());
+
+    return ob_get_clean();
+}
+$ana = \App\Customer::create('ana.muller@example.com', ['first_name' => 'Ana']);
+$nobody = \App\Customer::create('nobody@example.com', ['first_name' => 'No']);
+$html = sidebar($ana);
+check('beside a ticket: all the customer\'s orders', strpos($html, 'Orders (6)') !== false
+    && strpos($html, 'Example Product') !== false && strpos($html, 'Example Bump') !== false);
+check('beside a ticket: newest first', strpos($html, 'R2RECEIPT') < strpos($html, 'CWOGBZLN'));
+check('beside a ticket: paid, refunded and test, each marked', strpos($html, '>paid<') !== false && strpos($html, '>refunded<') !== false
+    && strpos($html, '>test<') !== false);
+check('beside a ticket: where, how much, the receipt', strpos($html, 'ClickBank') !== false && strpos($html, '27.00 USD') !== false
+    && strpos($html, 'receipt CWOGBZLN') !== false);
+check('beside a ticket: not accessed until used', substr_count($html, 'not accessed') == 6);
+Order::where('receipt', 'CWOGBZLN')->where('item', '1')->update(['accessed_at' => '2026-11-12 09:00:00', 'accesses' => 2]);
+$html = sidebar($ana);
+check('beside a ticket: accessed, once used', substr_count($html, 'not accessed') == 5 && strpos($html, '>accessed Nov') !== false);
+check('beside a ticket: nothing for a customer with no orders', sidebar($nobody) === '');
+Order::record(['source' => 'jvzoo', 'type' => 'CGBK', 'test' => false, 'receipt' => 'XSS1', 'parent_receipt' => null, 'item' => '9',
+    'title' => '<b>bold</b>', 'email' => 'ana.muller@example.com', 'name' => 'Ana', 'price' => 5, 'currency' => '', 'affiliate' => null,
+    'variables' => [], 'happened_at' => '2026-11-13 00:00:00']);
+$html = sidebar($ana);
+check('beside a ticket: charged back is marked, and a product name is shown as text, never as markup',
+    strpos($html, '>charged back<') !== false && strpos($html, '&lt;b&gt;bold&lt;/b&gt;') !== false && strpos($html, '<b>bold</b>') === false);
 
 // the settings page
 $sections = \Eventy::filter('settings.sections', []);

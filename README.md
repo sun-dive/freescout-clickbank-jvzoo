@@ -5,7 +5,10 @@ sees what each person bought.
 
 **What it does today:** it receives ClickBank's Instant Notifications (version 6.0 to 8.0) and JVZoo's JVZIPN, checks
 each against your secret key, and keeps one order per product bought: who bought it, what, for how much, through which
-affiliate, and whether it is active, refunded, charged back or cancelled. Test purchases are kept and marked as tests.
+affiliate, and whether it is paid, canceled, refunded or charged back. Test purchases are kept and marked as tests.
+
+**Beside each ticket** it shows the customer's orders, read-only and newest first, found by the customer's email
+addresses: each with its status, whether the buyer has accessed what they bought, the price, the date and the receipt.
 
 
 ## Install
