@@ -11,8 +11,10 @@
     <div class="form-group{{ $errors->has('settings.'.$secrets['clickbank']) ? ' has-error' : '' }}">
         <label for="clickbank_secret" class="col-sm-2 control-label">{{ __('Secret Key') }}</label>
         <div class="col-sm-6">
-            <input id="clickbank_secret" type="password" class="form-control input-sized" name="settings[{{ $secrets['clickbank'] }}]" value="{{ old('settings.'.$secrets['clickbank'], \Helper::safePassword($settings[$secrets['clickbank']])) }}" maxlength="255" autocomplete="new-password">
-            <p class="form-help">{{ __('Up to 16 capital letters and digits.') }}</p>
+            {{-- a text box, marked as no password for the usual password managers: a password box gets the site's login
+                 filled into it --}}
+            <input id="clickbank_secret" type="text" class="form-control input-sized" name="settings[{{ $secrets['clickbank'] }}]" value="{{ old('settings.'.$secrets['clickbank'], $settings[$secrets['clickbank']]) }}" maxlength="255" autocomplete="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
+            <p class="form-help">{{ __('Up to 16 capital letters and digits.') }} {{ __('A saved key shows as stars; to change it, clear the field first.') }}</p>
             @include('partials/field_error', ['field' => 'settings.'.$secrets['clickbank']])
         </div>
     </div>
@@ -26,7 +28,10 @@
     <div class="form-group{{ $errors->has('settings.'.$secrets['jvzoo']) ? ' has-error' : '' }}">
         <label for="jvzoo_secret" class="col-sm-2 control-label">{{ __('Secret Key') }}</label>
         <div class="col-sm-6">
-            <input id="jvzoo_secret" type="password" class="form-control input-sized" name="settings[{{ $secrets['jvzoo'] }}]" value="{{ old('settings.'.$secrets['jvzoo'], \Helper::safePassword($settings[$secrets['jvzoo']])) }}" maxlength="255" autocomplete="new-password">
+            {{-- a text box, marked as no password for the usual password managers: a password box gets the site's login
+                 filled into it --}}
+            <input id="jvzoo_secret" type="text" class="form-control input-sized" name="settings[{{ $secrets['jvzoo'] }}]" value="{{ old('settings.'.$secrets['jvzoo'], $settings[$secrets['jvzoo']]) }}" maxlength="255" autocomplete="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other">
+            <p class="form-help">{{ __('A saved key shows as stars; to change it, clear the field first.') }}</p>
             @include('partials/field_error', ['field' => 'settings.'.$secrets['jvzoo']])
         </div>
     </div>

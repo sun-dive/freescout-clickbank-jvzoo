@@ -13,7 +13,7 @@ affiliate, and whether it is active, refunded, charged back or cancelled. Test p
 1. Copy this folder into FreeScout's `Modules` folder as `Modules/ClickBankJVZoo`.
 2. In FreeScout, open Manage » Modules and activate it (or run `php artisan module:enable ClickBankJVZoo` and
    `php artisan freescout:module-install clickbankjvzoo`).
-3. Open Settings » ClickBank & JVZoo. Set each seller's secret key there and in the seller's account, and give each
+3. Open Manage » Settings, then ClickBank & JVZoo in the list on the left. Set each seller's secret key there and in the seller's account, and give each
    seller the address shown on that page.
 
 The secret keys are kept in FreeScout's settings, encrypted with the app's key; they are never shown again or put in

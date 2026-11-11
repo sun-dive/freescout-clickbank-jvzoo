@@ -56,8 +56,9 @@ class ClickBankJVZooServiceProvider extends ServiceProvider
             if ($section != self::SECTION) {
                 return $settings;
             }
-            foreach (self::SECRETS as $option) {
-                $settings[$option] = \Option::get($option, '');
+            // a saved key is shown as one star per character of the key (not of its encrypted form), and never sent
+            foreach (self::SECRETS as $seller => $option) {
+                $settings[$option] = str_repeat('*', mb_strlen(self::secret($seller)));
             }
 
             return $settings;
@@ -79,11 +80,26 @@ class ClickBankJVZooServiceProvider extends ServiceProvider
                 // shown as stars, never sent back to the page; saved encrypted
                 'settings' => array_fill_keys(array_values(self::SECRETS), ['safe_password' => true, 'encrypt' => true]),
                 'validator_rules' => [
-                    // ClickBank's secret key is up to 16 capitals and digits; stars are the saved key, unchanged
-                    'settings.'.self::SECRETS['clickbank'] => ['nullable', 'regex:/^(\*+|[A-Z0-9]{1,16})$/'],
-                    'settings.'.self::SECRETS['jvzoo']     => ['nullable', 'max:255'],
+                    'settings.'.self::SECRETS['clickbank'] => [new \Modules\ClickBankJVZoo\Misc\SecretKeyRule('clickbank')],
+                    'settings.'.self::SECRETS['jvzoo']     => [new \Modules\ClickBankJVZoo\Misc\SecretKeyRule('jvzoo')],
                 ],
             ];
+        }, 20, 2);
+
+        // spaces around a pasted key are dropped before it is saved
+        \Eventy::addFilter('settings.before_save', function ($request, $section) {
+            if ($section != self::SECTION || !is_array($request->settings)) {
+                return $request;
+            }
+            $values = $request->settings;
+            foreach (self::SECRETS as $option) {
+                if (isset($values[$option]) && is_string($values[$option])) {
+                    $values[$option] = trim($values[$option]);
+                }
+            }
+            $request->merge(['settings' => $values]);
+
+            return $request;
         }, 20, 2);
 
         \Eventy::addFilter('settings.view', function ($view, $section) {

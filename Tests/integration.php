@@ -118,12 +118,42 @@ $html = view('clickbankjvzoo::settings', [
 ])->render();
 check('settings: shows both notice addresses', strpos($html, rtrim(config('app.url'), '/').'/clickbank/notice') !== false
     && strpos($html, rtrim(config('app.url'), '/').'/jvzoo/notice') !== false);
-check('settings: shows the keys as stars, never the keys', strpos($html, $cb['secret']) === false && strpos($html, $jv['secret']) === false
-    && strpos($html, '*****') !== false);
-check('settings: refuses a ClickBank key that is not capitals and digits',
-    \Validator::make(['settings' => [Module::SECRETS['clickbank'] => 'lower-case']], $params['validator_rules'])->fails()
-    && !\Validator::make(['settings' => [Module::SECRETS['clickbank'] => 'ABC123']], $params['validator_rules'])->fails()
-    && !\Validator::make(['settings' => [Module::SECRETS['clickbank'] => '********']], $params['validator_rules'])->fails());
+check('settings: shows each saved key as one star per character, never the key',
+    strpos($html, $cb['secret']) === false && strpos($html, $jv['secret']) === false
+    && strpos($html, 'value="'.str_repeat('*', strlen($cb['secret'])).'"') !== false
+    && strpos($html, 'value="'.str_repeat('*', strlen($jv['secret'])).'"') !== false);
+check('settings: the key boxes are text boxes marked as no password, so no login is filled into them',
+    substr_count($html, 'type="text"') == 2 && strpos($html, 'type="password"') === false && substr_count($html, 'data-lpignore="true"') == 2);
+
+// FreeScout's own Save, as the page posts it
+function save_settings(array $values)
+{
+    $request = Illuminate\Http\Request::create(rtrim(config('app.url'), '/').'/settings/'.Module::SECTION, 'POST', ['settings' => $values]);
+    $request->setLaravelSession(app('session')->driver('array'));
+    app()->instance('request', $request);
+    app(App\Http\Controllers\SettingsController::class)->save(Module::SECTION);
+    // FreeScout flashes the errors into its own session store
+    $errors = app('session.store')->get('errors');
+    app('session.store')->forget('errors');
+
+    return $errors ? implode(' ', $errors->all()) : '';
+}
+$cbo = Module::SECRETS['clickbank'];
+$jvo = Module::SECRETS['jvzoo'];
+check('save: a new ClickBank key, the JVZoo box left empty', save_settings([$cbo => 'NEWKEY123', $jvo => '']) === ''
+    && Module::secret('clickbank') == 'NEWKEY123' && Module::secret('jvzoo') == '');
+check('save: an empty key shows an empty box', \Eventy::filter('settings.section_settings', [], Module::SECTION)[$jvo] === '');
+check('save: stars keep the saved key; a new JVZoo key is kept', save_settings([$cbo => '*********', $jvo => 'jv-key']) === ''
+    && Module::secret('clickbank') == 'NEWKEY123' && Module::secret('jvzoo') == 'jv-key');
+check('save: spaces around a pasted key are dropped', save_settings([$cbo => ' PASTED42 ', $jvo => '******']) === ''
+    && Module::secret('clickbank') == 'PASTED42');
+save_settings([$cbo => 'NEWKEY123', $jvo => '******']);
+$msg = save_settings([$cbo => '*********NEWKEY456', $jvo => '******']);
+check('save: a key typed after the stars is refused, saying to clear the field first, and nothing changes',
+    strpos($msg, 'clear the field first') !== false && Module::secret('clickbank') == 'NEWKEY123');
+$msg = save_settings([$cbo => 'lowercase1', $jvo => '******']);
+check('save: a ClickBank key that is not capitals and digits is refused, saying so',
+    strpos($msg, 'up to 16 capital letters and digits') !== false && Module::secret('clickbank') == 'NEWKEY123');
 
 clean();
 echo $failed ? "$failed failed\n" : "all passed\n";
